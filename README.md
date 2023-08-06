@@ -3,8 +3,8 @@ Slack music bot that requires unanimous decisions
 
 ## Requirements
 
-Python 3.11.x
-doctl (Digital Ocean CLI)
+- Python 3.11.x
+- doctl (Digital Ocean CLI)
 
 ## Environment Setup
 
