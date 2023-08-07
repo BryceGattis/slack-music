@@ -54,7 +54,7 @@ def main(event):
                         "text": "Add to playlist"
                     },
                     "style": "primary",
-                    "value": "moo",
+                    "value": track_info['track_id'],
                     "action_id": "add_song_to_playlist"
                 },
             ]
