@@ -13,15 +13,15 @@ OAUTH_AUTHORIZE_URL = "https://accounts.spotify.com/authorize"
 
 
 class DynamoCacheHandler(CacheHandler):
-    def __init__(self):
+    def __init__(self, workspace_id: int):
         dynamodb = boto3.resource('dynamodb')
         self.table = dynamodb.Table('slack_music_access_tokens')
-        self.spotify_client_secret = os.getenv('SPOTIPY_CLIENT_SECRET')
+        self.workspace_id = workspace_id
 
     def get_cached_token(self):
         resp = self.table.get_item(
             Key={
-                "client_secret": self.spotify_client_secret
+                "workspace_id": self.workspace_id
             }
         )
         found_entry = resp.get('Item', None)
@@ -33,7 +33,7 @@ class DynamoCacheHandler(CacheHandler):
     def save_token_to_cache(self, token_info: Dict[str, str]):
         self.table.update_item(
             Key={
-                "client_secret": self.spotify_client_secret
+                "workspace_id": self.workspace_id
             },
             UpdateExpression='SET #access_token=:access_token, #expires_at=:expires_at, #expires_in=:expires_in, #refresh_token=:refresh_token, #scope=:scope, #token_type=:token_type',
             ExpressionAttributeNames={
@@ -76,9 +76,12 @@ def main(event):
     logging.basicConfig(level=logging.INFO)
     payload_str = event['payload']
     payload = json.loads(payload_str)
+    workspace_id = payload['team']['id']
     actions = payload['actions']
+
+    cache_handler = DynamoCacheHandler(workspace_id=workspace_id)
     scope = "playlist-modify-public,playlist-modify-private"
-    auth_manager = SpotifyOAuth(open_browser=False, scope=scope, cache_handler=DynamoCacheHandler())
+    auth_manager = SpotifyOAuth(open_browser=False, scope=scope, cache_handler=cache_handler)
     spotipy_client = spotipy.Spotify(auth_manager=auth_manager)
     track_ids_to_add = []
     for action in actions:
