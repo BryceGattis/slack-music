@@ -55,14 +55,13 @@ class DynamoCacheHandler(CacheHandler):
         )
 
 
-def get_current_playlist_id() -> Optional[str]:
+def get_current_playlist_id(workspace_id: int) -> Optional[str]:
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table('slack_music_current_playlists')
 
-    spotify_client_secret = os.getenv('SPOTIPY_CLIENT_SECRET')
     resp = table.get_item(
         Key={
-            "client_secret": spotify_client_secret
+            "workspace_id": workspace_id
         }
     )
     found_entry = resp.get('Item', None)
@@ -93,7 +92,7 @@ def main(event):
     for track_id in track_ids_to_add:
         track_uri = f'spotify:track:{track_id}'
         track_uris.append(track_uri)
-    playlist_id = get_current_playlist_id()
+    playlist_id = get_current_playlist_id(workspace_id)
     if playlist_id is None:
         return {
             "statusCode": 400
