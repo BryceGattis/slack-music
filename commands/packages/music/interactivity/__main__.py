@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import Dict
+from typing import Dict, Optional
 
 import boto3
 import spotipy
@@ -55,6 +55,23 @@ class DynamoCacheHandler(CacheHandler):
         )
 
 
+def get_current_playlist_id() -> Optional[str]:
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table('slack_music_current_playlists')
+
+    spotify_client_secret = os.getenv('SPOTIPY_CLIENT_SECRET')
+    resp = table.get_item(
+        Key={
+            "client_secret": spotify_client_secret
+        }
+    )
+    found_entry = resp.get('Item', None)
+    playlist_id = None
+    if found_entry:
+        playlist_id = found_entry.get('playlist_id', None)
+    return playlist_id
+
+
 def main(event):
     logging.basicConfig(level=logging.INFO)
     payload_str = event['payload']
@@ -62,7 +79,7 @@ def main(event):
     actions = payload['actions']
     scope = "playlist-modify-public,playlist-modify-private"
     auth_manager = SpotifyOAuth(open_browser=False, scope=scope, cache_handler=DynamoCacheHandler())
-    sp = spotipy.Spotify(auth_manager=auth_manager)
+    spotipy_client = spotipy.Spotify(auth_manager=auth_manager)
     track_ids_to_add = []
     for action in actions:
         if action['action_id'] != 'add_song_to_playlist':
@@ -73,7 +90,13 @@ def main(event):
     for track_id in track_ids_to_add:
         track_uri = f'spotify:track:{track_id}'
         track_uris.append(track_uri)
-    sp.playlist_add_items('<Playlist ID>', track_uris)
+    playlist_id = get_current_playlist_id()
+    if playlist_id is None:
+        return {
+            "statusCode": 400
+        }
+    spotipy_client.playlist_add_items(playlist_id, track_uris)
+
     return {
         "statusCode": 200,
     }
